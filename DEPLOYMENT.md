@@ -12,7 +12,6 @@ This project is configured for Vercel with `api/index.py` and `vercel.json`.
 
 The public address will be printed by Vercel, for example
 `https://your-project-name.vercel.app/login.html`.
-
 ## Access
 
 Admin uses username `admin`, plus the password and MFA code configured above.

@@ -20,6 +20,7 @@
     const data = await response.json();
     if (!response.ok) return show(data.error || "Unable to create account.");
     sessionStorage.setItem("campuspulseVerificationCode", data.verification_code || "");
+    sessionStorage.setItem("campuspulseMfaCode", data.verification_code || "");
     show("Account created. Development verification code: " + (data.verification_code || "check your email") + ".");
     window.location.href = "verify.html";
   });
@@ -35,7 +36,6 @@
     const response = await fetch("/api/verify", { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ code: document.getElementById("verificationCode").value.trim() }) });
     const data = await response.json();
     if (!response.ok) return show(data.error || "Verification failed.");
-    sessionStorage.removeItem("campuspulseVerificationCode");
     show("Account verified. You can now log in with your MFA code.");
   });
 

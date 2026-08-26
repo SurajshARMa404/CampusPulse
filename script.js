@@ -7,6 +7,11 @@
   const mentalHealthForm = document.getElementById("mentalHealthForm");
   const navUser = document.getElementById("navUser");
   const logoutLink = document.getElementById("logoutLink");
+  const mfaInput = document.getElementById("mfaCode");
+
+  if (mfaInput) {
+    mfaInput.value = sessionStorage.getItem("campuspulseMfaCode") || "";
+  }
 
   async function loadSession() {
     const response = await fetch("/api/session", { credentials: "same-origin", cache: "no-store" });
@@ -109,6 +114,7 @@
           errorMessage.textContent = data.error || "Sign-in failed.";
           return;
         }
+        sessionStorage.removeItem("campuspulseMfaCode");
         window.location.href = data.is_admin ? "admin.html" : "home.html";
       } catch (error) {
         errorMessage.textContent = error.message || "Login service is unavailable. Try again.";

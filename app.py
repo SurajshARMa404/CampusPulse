@@ -13,6 +13,7 @@ from functools import wraps
 
 from flask import Flask, abort, jsonify, redirect, request, send_from_directory, session
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -257,7 +258,7 @@ def signup() -> object:
                  hashlib.sha256(verification_code.encode()).hexdigest(), datetime.now(timezone.utc).isoformat()),
             )
             conn.commit()
-        except sqlite3.IntegrityError:
+        except IntegrityError:
             return jsonify({"error": "Unable to create account with those details."}), 400
     session["verification_user"] = username
     session["verification_code_hash"] = hashlib.sha256(verification_code.encode()).hexdigest()

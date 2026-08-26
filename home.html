@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusPulse | Mental Health Predictor</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-bg app-page">
+  <nav class="navbar" aria-label="Main navigation">
+    <div class="nav-brand">CampusPulse</div>
+    <div class="nav-links">
+      <a href="home.html" class="nav-link">Predict</a>
+      <a href="focus.html" class="nav-link">Focus Live</a>
+      <a href="self-analysis.html" class="nav-link">Self Analysis</a>
+      <a href="login.html" class="nav-link" id="logoutLink">Log out</a>
+    </div>
+    <div class="nav-user" id="navUser">Guest</div>
+  </nav>
+
+  <main class="card card-wide" aria-labelledby="predict-title">
+    <h1 id="predict-title">Mental Health Predict Page</h1>
+    <p class="subtitle" id="welcomeText">Welcome! Fill the form to predict mental health score.</p>
+
+    <form id="mentalHealthForm" novalidate>
+      <label for="age">Age</label>
+      <input id="age" name="Age" type="number" min="10" max="100" required />
+
+      <label for="gender">Gender</label>
+      <select id="gender" name="Gender" required>
+        <option value="">Select gender</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <label for="country">Country</label>
+      <input id="country" name="Country" type="text" placeholder="Enter country" required />
+
+      <label for="academicLevel">Academic Level</label>
+      <select id="academicLevel" name="Academic_Level" required>
+        <option value="">Select level</option>
+        <option value="High School">High School</option>
+        <option value="Undergraduate">Undergraduate</option>
+        <option value="Postgraduate">Postgraduate</option>
+        <option value="Doctorate">Doctorate</option>
+      </select>
+
+      <label for="platform">Most Used Platform</label>
+      <select id="platform" name="Most_Used_Platform" required>
+        <option value="">Select platform</option>
+        <option value="Facebook">Facebook</option>
+        <option value="LinkedIn">LinkedIn</option>
+        <option value="Instagram">Instagram</option>
+        <option value="Snapchat">Snapchat</option>
+        <option value="Twitter">Twitter</option>
+        <option value="YouTube">YouTube</option>
+        <option value="TikTok">TikTok</option>
+        <option value="LINE">LINE</option>
+        <option value="KakaoTalk">KakaoTalk</option>
+        <option value="VKontakte">VKontakte</option>
+        <option value="WhatsApp">WhatsApp</option>
+        <option value="WeChat">WeChat</option>
+      </select>
+
+      <label for="purpose">Purpose Of Use</label>
+      <select id="purpose" name="Purpose_Of_Use" required>
+        <option value="">Select purpose</option>
+        <option value="Networking">Networking</option>
+        <option value="Education">Education</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="News">News</option>
+      </select>
+
+      <label for="dailyUsage">Avg Daily Usage Hours</label>
+      <input id="dailyUsage" name="Avg_Daily_Usage_Hours" type="number" min="0" max="24" step="0.1" required />
+
+      <label for="dailyUnlocks">Daily Unlocks</label>
+      <input id="dailyUnlocks" name="Daily_Unlocks" type="number" min="0" max="1000" required />
+
+      <label for="studyHours">Study Hours</label>
+      <input id="studyHours" name="Study_Hours" type="number" min="0" max="24" step="0.1" required />
+
+      <label for="activityHours">Physical Activity Hours</label>
+      <input id="activityHours" name="Physical_Activity_Hours" type="number" min="0" max="24" step="0.1" required />
+
+      <label for="sleepHours">Sleep Hours Per Night</label>
+      <input id="sleepHours" name="Sleep_Hours_Per_Night" type="number" min="0" max="24" step="0.1" required />
+
+      <p id="predictError" class="error" role="alert" aria-live="polite"></p>
+      <button type="submit">Predict Mental Health</button>
+    </form>
+
+    <section id="predictionResult" class="result" aria-live="polite">
+      <h2>Prediction Result</h2>
+      <p><strong>Target (Mental_Health_Score):</strong> <span id="predictedScore">-</span></p>
+      <p><strong>Stress Level:</strong> <span id="predictedStress">-</span></p>
+    </section>
+
+    <a class="link-btn" href="focus.html">Go To Focus Live Analysis</a>
+    <a class="link-btn" href="self-analysis.html">Go To Self Analysis</a>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

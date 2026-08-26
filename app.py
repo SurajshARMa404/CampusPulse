@@ -1,0 +1,571 @@
+from __future__ import annotations
+
+import sqlite3
+import hashlib
+import hmac
+import logging
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from functools import wraps
+
+from flask import Flask, abort, jsonify, redirect, request, send_from_directory, session
+from werkzeug.security import check_password_hash, generate_password_hash
+
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = Path(os.environ.get("CAMPUSPULSE_DB_PATH", str(BASE_DIR / "campuspulse.db")))
+
+app = Flask(__name__, static_folder=None)
+app.config.update(
+    SECRET_KEY=os.environ.get("CAMPUSPULSE_SECRET_KEY", "dev-only-change-this-secret"),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("CAMPUSPULSE_SECURE_COOKIES", "0") == "1",
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=30),
+)
+app.logger.setLevel(logging.INFO)
+
+
+@app.after_request
+def security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = "default-src 'self' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net blob:; worker-src 'self' blob:"
+    return response
+
+
+def get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db() -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS focus_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                focused_percentage REAL NOT NULL,
+                distracted_percentage REAL NOT NULL,
+                focused_seconds INTEGER NOT NULL,
+                distracted_seconds INTEGER NOT NULL,
+                total_seconds INTEGER NOT NULL,
+                session_started_at TEXT NOT NULL,
+                session_ended_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS self_analysis_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                log_date TEXT NOT NULL,
+                study_hours REAL NOT NULL,
+                coding_hours REAL NOT NULL,
+                gaming_hours REAL NOT NULL,
+                physical_activity_hours REAL NOT NULL,
+                social_media_hours REAL NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(username, log_date)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                department TEXT NOT NULL,
+                study_year INTEGER NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
+                is_verified INTEGER NOT NULL DEFAULT 0,
+                mfa_secret TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                stress_level TEXT NOT NULL,
+                score REAL NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+            """
+        )
+        conn.execute(
+            """INSERT OR IGNORE INTO users
+               (username, email, password_hash, department, study_year, is_admin,
+                is_verified, mfa_secret, created_at)
+               VALUES (?, ?, ?, ?, ?, 1, 1, ?, ?)""",
+            (
+                "admin",
+                "admin@campuspulse.local",
+                generate_password_hash(os.environ.get("CAMPUSPULSE_ADMIN_PASSWORD", "AdminChangeMe!1")),
+                "CSE",
+                1,
+                hashlib.sha256(os.environ.get("CAMPUSPULSE_ADMIN_MFA", "admin-demo-mfa").encode()).hexdigest(),
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.execute("UPDATE users SET mfa_secret = ? WHERE username = 'admin'", (hashlib.sha256(os.environ.get("CAMPUSPULSE_ADMIN_MFA", "admin-demo-mfa").encode()).hexdigest(),))
+        conn.commit()
+
+
+def current_user() -> sqlite3.Row | None:
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    with get_conn() as conn:
+        return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+
+def require_auth(admin: bool = False):
+    def decorator(function):
+        @wraps(function)
+        def wrapped(*args, **kwargs):
+            user = current_user()
+            if user is None:
+                return jsonify({"error": "authentication required"}), 401
+            if admin and not user["is_admin"]:
+                return jsonify({"error": "administrator access required"}), 403
+            return function(*args, **kwargs)
+        return wrapped
+    return decorator
+
+
+def valid_csrf() -> bool:
+    token = request.headers.get("X-CSRF-Token", "")
+    expected = session.get("csrf_token", "")
+    return bool(token and expected and hmac.compare_digest(token, expected))
+
+
+def csrf_required(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        if not valid_csrf():
+            return jsonify({"error": "invalid security token"}), 403
+        return function(*args, **kwargs)
+    return wrapped
+
+
+def cleanup_old_rows(conn: sqlite3.Connection) -> None:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    conn.execute("DELETE FROM focus_sessions WHERE created_at < ?", (cutoff,))
+    conn.execute("DELETE FROM self_analysis_logs WHERE created_at < ?", (cutoff,))
+
+
+@app.route("/api/session", methods=["GET"])
+def session_info() -> object:
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    user = current_user()
+    return jsonify({
+        "authenticated": user is not None,
+        "username": user["username"] if user else None,
+        "is_admin": bool(user["is_admin"]) if user else False,
+        "csrf_token": session["csrf_token"],
+    })
+
+
+@app.route("/api/signup", methods=["POST"])
+@csrf_required
+def signup() -> object:
+    payload = request.get_json(silent=True) or {}
+    username = str(payload.get("username", "")).strip()
+    email = str(payload.get("email", "")).strip().lower()
+    password = str(payload.get("password", ""))
+    department = str(payload.get("department", "")).strip().upper()
+    try:
+        study_year = int(payload.get("study_year", 0))
+    except (TypeError, ValueError):
+        study_year = 0
+    if len(username) < 3 or len(username) > 40 or not username.replace("_", "").isalnum():
+        return jsonify({"error": "Choose a valid username."}), 400
+    if "@" not in email or len(password) < 10 or department != "CSE" or study_year not in (1, 2, 3, 4):
+        return jsonify({"error": "Enter valid account details and a password of at least 10 characters."}), 400
+    verification_code = f"{secrets.randbelow(1000000):06d}"
+    with get_conn() as conn:
+        try:
+            conn.execute(
+                """INSERT INTO users
+                   (username, email, password_hash, department, study_year, is_verified, mfa_secret, created_at)
+                   VALUES (?, ?, ?, ?, ?, 0, ?, ?)""",
+                (username, email, generate_password_hash(password), department, study_year,
+                 hashlib.sha256(verification_code.encode()).hexdigest(), datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            return jsonify({"error": "Unable to create account with those details."}), 400
+    session["verification_user"] = username
+    session["verification_code_hash"] = hashlib.sha256(verification_code.encode()).hexdigest()
+    app.logger.info("signup created username=%s", username)
+    return jsonify({"message": "Account created. Enter the verification code.", "verification_code": verification_code})
+
+
+@app.route("/api/verify", methods=["POST"])
+@csrf_required
+def verify_account() -> object:
+    payload = request.get_json(silent=True) or {}
+    code = str(payload.get("code", "")).strip()
+    expected = session.get("verification_code_hash", "")
+    username = session.get("verification_user", "")
+    if not username or not expected or not hmac.compare_digest(hashlib.sha256(code.encode()).hexdigest(), expected):
+        return jsonify({"error": "Invalid or expired verification code."}), 400
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET is_verified = 1 WHERE username = ?", (username,))
+        conn.commit()
+    session.pop("verification_user", None)
+    session.pop("verification_code_hash", None)
+    app.logger.info("account verified username=%s", username)
+    return jsonify({"message": "Account verified."})
+
+
+@app.route("/api/login", methods=["POST"])
+@csrf_required
+def login() -> object:
+    payload = request.get_json(silent=True) or {}
+    username = str(payload.get("username", "")).strip()
+    password = str(payload.get("password", ""))
+    mfa_code = str(payload.get("mfa_code", "")).strip()
+    with get_conn() as conn:
+        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    if user is None or not check_password_hash(user["password_hash"], password) or not user["is_verified"]:
+        app.logger.warning("login failed username=%s", username)
+        return jsonify({"error": "Invalid credentials or unverified account."}), 401
+    expected_mfa = hashlib.sha256(mfa_code.encode()).hexdigest()
+    if not mfa_code or not hmac.compare_digest(expected_mfa, user["mfa_secret"]):
+        app.logger.warning("mfa failed username=%s", username)
+        return jsonify({"error": "A valid MFA code is required."}), 401
+    session.clear()
+    session.permanent = True
+    session["user_id"] = user["id"]
+    session["csrf_token"] = secrets.token_urlsafe(32)
+    app.logger.info("login success username=%s admin=%s", username, bool(user["is_admin"]))
+    return jsonify({"message": "Signed in.", "is_admin": bool(user["is_admin"])})
+
+
+@app.route("/api/logout", methods=["POST"])
+@csrf_required
+def logout() -> object:
+    app.logger.info("logout user_id=%s", session.get("user_id"))
+    session.clear()
+    return jsonify({"message": "Signed out."})
+
+
+@app.route("/api/request-password-reset", methods=["POST"])
+@csrf_required
+def request_password_reset() -> object:
+    payload = request.get_json(silent=True) or {}
+    email = str(payload.get("email", "")).strip().lower()
+    with get_conn() as conn:
+        user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    response = {"message": "If that account exists, reset instructions have been issued."}
+    if user:
+        token = secrets.token_urlsafe(32)
+        session["reset_token_hash"] = hashlib.sha256(token.encode()).hexdigest()
+        session["reset_user_id"] = user["id"]
+        response["reset_token"] = token
+    return jsonify(response)
+
+
+@app.route("/api/reset-password", methods=["POST"])
+@csrf_required
+def reset_password() -> object:
+    payload = request.get_json(silent=True) or {}
+    token = str(payload.get("token", ""))
+    password = str(payload.get("password", ""))
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    if len(password) < 10 or not session.get("reset_user_id") or not hmac.compare_digest(token_hash, session.get("reset_token_hash", "")):
+        return jsonify({"error": "Invalid reset request or password."}), 400
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (generate_password_hash(password), session["reset_user_id"]))
+        conn.commit()
+    session.pop("reset_token_hash", None)
+    session.pop("reset_user_id", None)
+    return jsonify({"message": "Password updated."})
+
+
+@app.route("/api/predictions", methods=["POST"])
+@require_auth()
+@csrf_required
+def save_prediction() -> object:
+    payload = request.get_json(silent=True) or {}
+    try:
+        score = float(payload.get("score"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid prediction."}), 400
+    stress_level = str(payload.get("stress_level", "")).strip()
+    if stress_level not in {"Low", "Moderate", "High"} or not 0 <= score <= 100:
+        return jsonify({"error": "Invalid prediction."}), 400
+    with get_conn() as conn:
+        conn.execute("INSERT INTO predictions (user_id, stress_level, score, created_at) VALUES (?, ?, ?, ?)",
+                     (session["user_id"], stress_level, score, datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+    return jsonify({"message": "saved"})
+
+
+@app.route("/api/admin/stats", methods=["GET"])
+@require_auth(admin=True)
+def admin_stats() -> object:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT u.study_year, p.stress_level, COUNT(*) AS count
+               FROM predictions p JOIN users u ON u.id = p.user_id
+               WHERE u.department = 'CSE' GROUP BY u.study_year, p.stress_level"""
+        ).fetchall()
+        focus_rows = conn.execute(
+            """SELECT u.study_year, f.distracted_percentage
+               FROM focus_sessions f JOIN users u ON u.username = f.username
+               WHERE u.department = 'CSE'"""
+        ).fetchall()
+    stats = []
+    for year in range(1, 5):
+        counts = {"Low": 0, "Moderate": 0, "High": 0}
+        for row in rows:
+            if row["study_year"] == year:
+                counts[row["stress_level"]] = row["count"]
+        for row in focus_rows:
+            if row["study_year"] == year:
+                distraction = row["distracted_percentage"]
+                level = "High" if distraction >= 50 else "Moderate" if distraction >= 25 else "Low"
+                counts[level] += 1
+        total = sum(counts.values())
+        stats.append({"year": year, "total": total, "stress_percent": round((counts["High"] / total) * 100, 1) if total else 0,
+                      "high": counts["High"], "moderate": counts["Moderate"], "low": counts["Low"]})
+    return jsonify({"department": "CSE", "years": stats})
+
+
+@app.route("/")
+def root() -> object:
+    return send_from_directory(BASE_DIR, "index.html")
+
+
+@app.route("/<path:filename>")
+def static_pages(filename: str) -> object:
+    if filename.startswith("api/"):
+        abort(404)
+
+    user = current_user()
+    if filename.lower() in {"home.html", "focus.html", "self-analysis.html"} and user is None:
+        return redirect("/login.html")
+    if filename.lower() == "admin.html" and (user is None or not user["is_admin"]):
+        return redirect("/login.html")
+
+    file_path = BASE_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        abort(404)
+
+    return send_from_directory(BASE_DIR, filename)
+
+
+@app.route("/api/focus-session", methods=["POST"])
+@require_auth()
+@csrf_required
+def create_focus_session() -> object:
+    payload = request.get_json(silent=True) or {}
+
+    username = current_user()["username"]
+
+    try:
+        focused_percentage = float(payload.get("focused_percentage", 0))
+        distracted_percentage = float(payload.get("distracted_percentage", 0))
+        focused_seconds = int(payload.get("focused_seconds", 0))
+        distracted_seconds = int(payload.get("distracted_seconds", 0))
+        total_seconds = int(payload.get("total_seconds", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid numeric values"}), 400
+
+    session_started_at = str(payload.get("session_started_at", "")).strip()
+    session_ended_at = str(payload.get("session_ended_at", "")).strip()
+
+    if not session_started_at or not session_ended_at:
+        return jsonify({"error": "session timestamps are required"}), 400
+
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    with get_conn() as conn:
+        cleanup_old_rows(conn)
+        cursor = conn.execute(
+            """
+            INSERT INTO focus_sessions (
+                username,
+                focused_percentage,
+                distracted_percentage,
+                focused_seconds,
+                distracted_seconds,
+                total_seconds,
+                session_started_at,
+                session_ended_at,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                username,
+                focused_percentage,
+                distracted_percentage,
+                focused_seconds,
+                distracted_seconds,
+                total_seconds,
+                session_started_at,
+                session_ended_at,
+                created_at,
+            ),
+        )
+        conn.commit()
+
+    return jsonify({"message": "saved", "session_id": cursor.lastrowid})
+
+
+@app.route("/api/focus-session/latest", methods=["GET"])
+@require_auth()
+def latest_focus_session() -> object:
+    username = current_user()["username"]
+
+    with get_conn() as conn:
+        cleanup_old_rows(conn)
+        row = conn.execute(
+            """
+            SELECT id, username, focused_percentage, distracted_percentage,
+                   focused_seconds, distracted_seconds, total_seconds,
+                   session_started_at, session_ended_at, created_at
+            FROM focus_sessions
+            WHERE username = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (username,),
+        ).fetchone()
+
+        conn.commit()
+
+    if row is None:
+        return jsonify({"message": "no session found"}), 404
+
+    return jsonify(dict(row))
+
+
+@app.route("/api/self-analysis", methods=["POST"])
+@require_auth()
+@csrf_required
+def create_or_update_self_analysis() -> object:
+    payload = request.get_json(silent=True) or {}
+
+    username = current_user()["username"]
+    log_date = str(payload.get("log_date", "")).strip()
+    if not log_date:
+        return jsonify({"error": "log_date is required"}), 400
+
+    try:
+        study_hours = float(payload.get("study_hours", 0))
+        coding_hours = float(payload.get("coding_hours", 0))
+        gaming_hours = float(payload.get("gaming_hours", 0))
+        physical_activity_hours = float(payload.get("physical_activity_hours", 0))
+        social_media_hours = float(payload.get("social_media_hours", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid numeric values"}), 400
+
+    all_values = [
+        study_hours,
+        coding_hours,
+        gaming_hours,
+        physical_activity_hours,
+        social_media_hours,
+    ]
+    if any(value < 0 or value > 24 for value in all_values):
+        return jsonify({"error": "hours must be between 0 and 24"}), 400
+
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    with get_conn() as conn:
+        cleanup_old_rows(conn)
+        conn.execute(
+            """
+            INSERT INTO self_analysis_logs (
+                username,
+                log_date,
+                study_hours,
+                coding_hours,
+                gaming_hours,
+                physical_activity_hours,
+                social_media_hours,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(username, log_date) DO UPDATE SET
+                study_hours = excluded.study_hours,
+                coding_hours = excluded.coding_hours,
+                gaming_hours = excluded.gaming_hours,
+                physical_activity_hours = excluded.physical_activity_hours,
+                social_media_hours = excluded.social_media_hours,
+                created_at = excluded.created_at
+            """,
+            (
+                username,
+                log_date,
+                study_hours,
+                coding_hours,
+                gaming_hours,
+                physical_activity_hours,
+                social_media_hours,
+                created_at,
+            ),
+        )
+        conn.commit()
+
+    return jsonify({"message": "saved", "username": username, "log_date": log_date})
+
+
+@app.route("/api/self-analysis", methods=["GET"])
+@require_auth()
+def list_self_analysis() -> object:
+    username = current_user()["username"]
+
+    try:
+        days = int(request.args.get("days", "30"))
+    except ValueError:
+        days = 30
+    days = max(1, min(days, 365))
+
+    from_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+
+    with get_conn() as conn:
+        cleanup_old_rows(conn)
+        rows = conn.execute(
+            """
+            SELECT id, username, log_date, study_hours, coding_hours, gaming_hours,
+                   physical_activity_hours, social_media_hours, created_at
+            FROM self_analysis_logs
+            WHERE username = ? AND log_date >= ?
+            ORDER BY log_date ASC
+            """,
+            (username, from_date),
+        ).fetchall()
+        conn.commit()
+
+    with get_conn() as conn:
+        focus_rows = conn.execute(
+            """SELECT id, focused_percentage, distracted_percentage, focused_seconds,
+                      distracted_seconds, total_seconds, session_started_at,
+                      session_ended_at, created_at
+               FROM focus_sessions WHERE username = ? ORDER BY id DESC LIMIT 30""",
+            (username,),
+        ).fetchall()
+
+    return jsonify({"records": [dict(row) for row in rows], "focus_sessions": [dict(row) for row in focus_rows]})
+
+
+init_db()
+
+if __name__ == "__main__":
+    app.run(debug=True)

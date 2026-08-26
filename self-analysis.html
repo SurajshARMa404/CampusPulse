@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusPulse | Self Analysis</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-bg app-page">
+  <nav class="navbar" aria-label="Main navigation">
+    <div class="nav-brand">CampusPulse</div>
+    <div class="nav-links">
+      <a href="home.html" class="nav-link">Predict</a>
+      <a href="focus.html" class="nav-link">Focus Live</a>
+      <a href="self-analysis.html" class="nav-link">Self Analysis</a>
+      <a href="login.html" class="nav-link" id="logoutLink">Log out</a>
+    </div>
+    <div class="nav-user" id="navUser">Guest</div>
+  </nav>
+
+  <main class="card card-wide" aria-labelledby="self-title">
+    <h1 id="self-title">Student Self Analysis</h1>
+    <p class="subtitle">Enter daily hours. Activity heatmaps are shown in GitHub style and stored in database.</p>
+
+    <form id="selfAnalysisForm" novalidate>
+      <label for="analysisDate">Date</label>
+      <input id="analysisDate" name="analysisDate" type="date" required />
+
+      <label for="studyInput">Study Hours</label>
+      <input id="studyInput" name="studyHours" type="number" min="0" max="24" step="0.5" required />
+
+      <label for="codingInput">Coding Hours</label>
+      <input id="codingInput" name="codingHours" type="number" min="0" max="24" step="0.5" required />
+
+      <label for="gamingInput">Gaming Hours</label>
+      <input id="gamingInput" name="gamingHours" type="number" min="0" max="24" step="0.5" required />
+
+      <label for="physicalInput">Physical Activity Hours</label>
+      <input id="physicalInput" name="physicalHours" type="number" min="0" max="24" step="0.5" required />
+
+      <label for="socialInput">Social Media Hours</label>
+      <input id="socialInput" name="socialHours" type="number" min="0" max="24" step="0.5" required />
+
+      <p id="selfError" class="error" role="alert" aria-live="polite"></p>
+      <button type="submit">Save Daily Analysis</button>
+    </form>
+
+    <section class="result" aria-live="polite">
+      <h2>GitHub Style Activity Grid (Last 30 Days)</h2>
+      <p class="subtitle">Darker green means more hours.</p>
+
+      <div class="heatmap-block">
+        <h3>Study</h3>
+        <div id="studyGrid" class="heatmap-grid" aria-label="Study heatmap"></div>
+      </div>
+
+      <div class="heatmap-block heatmap-gap">
+        <h3>Coding</h3>
+        <div id="codingGrid" class="heatmap-grid" aria-label="Coding heatmap"></div>
+      </div>
+
+      <div class="heatmap-block heatmap-gap">
+        <h3>Gaming</h3>
+        <div id="gamingGrid" class="heatmap-grid" aria-label="Gaming heatmap"></div>
+      </div>
+
+      <div class="heatmap-block heatmap-gap">
+        <h3>Physical Activity</h3>
+        <div id="physicalGrid" class="heatmap-grid" aria-label="Physical heatmap"></div>
+      </div>
+
+      <div class="heatmap-block heatmap-gap">
+        <h3>Social Media</h3>
+        <div id="socialGrid" class="heatmap-grid" aria-label="Social heatmap"></div>
+      </div>
+
+      <p id="selfSaveStatus" class="subtitle">No entry saved yet.</p>
+    </section>
+
+    <section class="result" aria-live="polite">
+      <h2>Saved Focus Sessions</h2>
+      <div id="focusSessionHistory"><p class="subtitle">No focus sessions saved yet.</p></div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+  <script src="self-analysis.js"></script>
+</body>
+</html>

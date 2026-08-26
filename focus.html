@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusPulse | Focus Live Analysis</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-bg app-page">
+  <nav class="navbar" aria-label="Main navigation">
+    <div class="nav-brand">CampusPulse</div>
+    <div class="nav-links">
+      <a href="home.html" class="nav-link">Predict</a>
+      <a href="focus.html" class="nav-link">Focus Live</a>
+      <a href="self-analysis.html" class="nav-link">Self Analysis</a>
+      <a href="login.html" class="nav-link" id="logoutLink">Log out</a>
+    </div>
+    <div class="nav-user" id="navUser">Guest</div>
+  </nav>
+
+  <main class="card card-wide" aria-labelledby="focus-title">
+    <h1 id="focus-title">Live Focus And Distraction Analysis</h1>
+    <p class="subtitle" id="focusWelcome">Start camera to analyze student focus during live session.</p>
+
+    <section class="focus-layout">
+      <div class="camera-pane">
+        <video id="cameraFeed" class="camera-video" autoplay muted playsinline></video>
+        <canvas id="cameraOverlay" class="camera-overlay"></canvas>
+      </div>
+
+      <div class="metrics-pane">
+        <p><strong>Status:</strong> <span id="sessionStatus">Idle</span></p>
+        <p><strong>Focused:</strong> <span id="focusPct">0%</span></p>
+        <p><strong>Distracted:</strong> <span id="distractedPct">0%</span></p>
+        <p><strong>Duration:</strong> <span id="sessionDuration">0s</span></p>
+        <p><strong>Frames:</strong> <span id="frameCount">0</span></p>
+        <p><strong>Processing:</strong> <span id="processingStatus">Waiting</span></p>
+        <p><strong>Face:</strong> <span id="faceStatus">Waiting</span></p>
+        <p><strong>Blinks:</strong> <span id="blinkCount">0</span></p>
+
+        <div class="action-row">
+          <button id="startCameraBtn" type="button">Start Camera</button>
+          <button id="stopCameraBtn" type="button" class="ghost-btn">Stop Camera</button>
+        </div>
+
+        <p id="focusError" class="error" role="alert" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="focusResult" class="result" aria-live="polite">
+      <h2>Session Result</h2>
+      <p><strong>Focus Percentage:</strong> <span id="finalFocus">-</span></p>
+      <p><strong>Distraction Percentage:</strong> <span id="finalDistracted">-</span></p>
+      <p><strong>Saved:</strong> <span id="saveStatus">Not saved yet</span></p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="script.js"></script>
+  <script src="focus.js"></script>
+</body>
+</html>

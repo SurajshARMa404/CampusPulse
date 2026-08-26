@@ -1,0 +1,6 @@
+Flask>=3.0.0
+https://your-project-name.vercel.app/login.html
+
+admin
+CAMPUSPULSE_ADMIN_PASSWORD
+CAMPUSPULSE_ADMIN_MFA

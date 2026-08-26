@@ -5,6 +5,7 @@ This project is configured for Vercel with `api/index.py` and `vercel.json`.
 1. Install Node.js, then install the Vercel CLI: `npm install -g vercel`.
 2. From this folder run: `vercel login` and then `vercel`.
 3. In Vercel project settings, add these environment variables for Production:
+   - `DATABASE_URL`: the pooled PostgreSQL connection URL from Supabase or Neon
    - `CAMPUSPULSE_SECRET_KEY`: a long random value
    - `CAMPUSPULSE_ADMIN_PASSWORD`: a new strong admin password
    - `CAMPUSPULSE_ADMIN_MFA`: a private admin MFA code
@@ -21,6 +22,16 @@ study year, verify the displayed development code, and then log in. In a real
 deployment, replace the development verification-code response with email or
 SMS delivery.
 
-The current SQLite database uses `/tmp` on Vercel. That storage is temporary and
-can be cleared between serverless invocations. Use a hosted database such as
-Vercel Postgres, Neon, or Supabase before relying on persistent student data.
+## Persistent database setup
+
+1. Create a free project at [Supabase](https://supabase.com) or [Neon](https://neon.tech).
+2. Open the project dashboard and copy its PostgreSQL **Connection string** or
+   **Connection URL**. Prefer the pooled URL when the provider offers one.
+3. In Vercel, open **CampusPulse > Settings > Environment Variables**.
+4. Add key `DATABASE_URL` and paste the complete URL as its value. Enable it for
+   Production, Preview, and Development as needed.
+5. Redeploy with `vercel --prod` or trigger a new deployment from GitHub.
+
+The app uses local SQLite only when `DATABASE_URL` is absent. On Vercel, do not
+omit `DATABASE_URL`: the `/tmp` fallback is temporary and is only intended for
+local development or a quick smoke test.

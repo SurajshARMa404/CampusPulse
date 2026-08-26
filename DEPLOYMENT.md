@@ -32,6 +32,9 @@ SMS delivery.
    Production, Preview, and Development as needed.
 5. Redeploy with `vercel --prod` or trigger a new deployment from GitHub.
 
+Check `https://your-project.vercel.app/api/health`. It must report
+`"persistent_database_configured": true` before students create accounts.
+
 The app uses local SQLite only when `DATABASE_URL` is absent. On Vercel, do not
 omit `DATABASE_URL`: the `/tmp` fallback is temporary and is only intended for
 local development or a quick smoke test.

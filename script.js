@@ -9,7 +9,10 @@
   const logoutLink = document.getElementById("logoutLink");
 
   async function loadSession() {
-    const response = await fetch("/api/session");
+    const response = await fetch("/api/session", { credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("The login service is temporarily unavailable.");
+    }
     const data = await response.json();
     csrfToken = data.csrf_token || "";
     sessionUser = data.username || "";
@@ -84,26 +87,44 @@
         return;
       }
 
-      await sessionReady;
-      const response = await fetch("/api/login", {
+      try {
+        await sessionReady;
+        let response = await fetch("/api/login", {
+        credentials: "same-origin",
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
         body: JSON.stringify({ username: username, password: password, mfa_code: mfaCode })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        errorMessage.textContent = data.error || "Sign-in failed.";
-        return;
+        });
+        if (response.status === 403) {
+          await loadSession();
+          response = await fetch("/api/login", {
+          credentials: "same-origin",
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+          body: JSON.stringify({ username: username, password: password, mfa_code: mfaCode })
+          });
+        }
+        const data = await response.json();
+        if (!response.ok) {
+          errorMessage.textContent = data.error || "Sign-in failed.";
+          return;
+        }
+        window.location.href = data.is_admin ? "admin.html" : "home.html";
+      } catch (error) {
+        errorMessage.textContent = error.message || "Login service is unavailable. Try again.";
       }
-      window.location.href = data.is_admin ? "admin.html" : "home.html";
     });
   }
 
   let activeUser = "";
-  loadSession().then(function () {
+  sessionReady.then(function () {
     activeUser = updateNavAndSession();
     if (welcomeText && activeUser) {
       welcomeText.textContent = "Welcome, " + activeUser + "!";
+    }
+  }).catch(function (error) {
+    if (loginForm) {
+      document.getElementById("errorMessage").textContent = error.message;
     }
   });
 

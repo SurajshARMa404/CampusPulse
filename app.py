@@ -175,13 +175,33 @@ def init_db() -> None:
             ),
         )
         conn.execute("UPDATE users SET mfa_secret = ? WHERE username = 'admin'", (hashlib.sha256(os.environ.get("CAMPUSPULSE_ADMIN_MFA", "admin-demo-mfa").encode()).hexdigest(),))
+        conn.execute(
+            """INSERT INTO users
+               (username, email, password_hash, department, study_year, is_admin,
+                is_verified, mfa_secret, created_at)
+               VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?)
+               ON CONFLICT (username) DO NOTHING""",
+            (
+                "guest",
+                "guest@campuspulse.local",
+                generate_password_hash(secrets.token_urlsafe(32)),
+                "CSE",
+                1,
+                hashlib.sha256(secrets.token_urlsafe(32).encode()).hexdigest(),
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
         conn.commit()
 
 
 def current_user() -> sqlite3.Row | None:
     user_id = session.get("user_id")
     if not user_id:
-        return None
+        with get_conn() as conn:
+            guest = conn.execute("SELECT * FROM users WHERE username = 'guest'").fetchone()
+        if guest is not None:
+            session["user_id"] = guest["id"]
+        return guest
     with get_conn() as conn:
         return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
 
@@ -424,10 +444,8 @@ def static_pages(filename: str) -> object:
         abort(404)
 
     user = current_user()
-    if filename.lower() in {"home.html", "focus.html", "self-analysis.html"} and user is None:
-        return redirect("/login.html")
     if filename.lower() == "admin.html" and (user is None or not user["is_admin"]):
-        return redirect("/login.html")
+        return redirect("/signup.html")
 
     file_path = BASE_DIR / filename
     if not file_path.exists() or not file_path.is_file():

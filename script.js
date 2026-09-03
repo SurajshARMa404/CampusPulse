@@ -2,16 +2,9 @@
   let csrfToken = "";
   let sessionUser = "";
   const sessionReady = loadSession();
-  const loginForm = document.getElementById("loginForm");
   const welcomeText = document.getElementById("welcomeText");
   const mentalHealthForm = document.getElementById("mentalHealthForm");
   const navUser = document.getElementById("navUser");
-  const logoutLink = document.getElementById("logoutLink");
-  const mfaInput = document.getElementById("mfaCode");
-
-  if (mfaInput) {
-    mfaInput.value = sessionStorage.getItem("campuspulseMfaCode") || "";
-  }
 
   async function loadSession() {
     const response = await fetch("/api/session", { credentials: "same-origin", cache: "no-store" });
@@ -32,11 +25,6 @@
     const user = sessionUser;
     if (navUser) {
       navUser.textContent = user ? "User: " + user : "Guest";
-    }
-
-    if (onProtectedPage() && !user) {
-      window.location.href = "login.html";
-      return "";
     }
 
     return user;
@@ -75,75 +63,16 @@
     return "High";
   }
 
-  if (loginForm) {
-    loginForm.addEventListener("submit", async function (event) {
-      event.preventDefault();
-
-      const usernameInput = document.getElementById("username");
-      const passwordInput = document.getElementById("password");
-      const errorMessage = document.getElementById("errorMessage");
-
-      const username = usernameInput.value.trim();
-      const password = passwordInput.value;
-      const mfaCode = document.getElementById("mfaCode").value.trim();
-
-      if (!username || !password || !mfaCode) {
-        errorMessage.textContent = "Enter username, password, and MFA code.";
-        return;
-      }
-
-      try {
-        await sessionReady;
-        let response = await fetch("/api/login", {
-        credentials: "same-origin",
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
-        body: JSON.stringify({ username: username, password: password, mfa_code: mfaCode })
-        });
-        if (response.status === 403) {
-          await loadSession();
-          response = await fetch("/api/login", {
-          credentials: "same-origin",
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
-          body: JSON.stringify({ username: username, password: password, mfa_code: mfaCode })
-          });
-        }
-        const data = await response.json();
-        if (!response.ok) {
-          errorMessage.textContent = data.error || "Sign-in failed.";
-          return;
-        }
-        sessionStorage.removeItem("campuspulseMfaCode");
-        window.location.href = data.is_admin ? "admin.html" : "home.html";
-      } catch (error) {
-        errorMessage.textContent = error.message || "Login service is unavailable. Try again.";
-      }
-    });
-  }
-
   let activeUser = "";
   sessionReady.then(function () {
     activeUser = updateNavAndSession();
     if (welcomeText && activeUser) {
       welcomeText.textContent = "Welcome, " + activeUser + "!";
     }
-  }).catch(function (error) {
-    if (loginForm) {
-      document.getElementById("errorMessage").textContent = error.message;
-    }
-  });
+  }).catch(function () {});
 
   if (welcomeText) {
     welcomeText.textContent = "Welcome! Fill the form to predict mental health score.";
-  }
-
-  if (logoutLink) {
-    logoutLink.addEventListener("click", function (event) {
-      event.preventDefault();
-      fetch("/api/logout", { method: "POST", headers: { "X-CSRF-Token": csrfToken } })
-        .finally(function () { window.location.href = "login.html"; });
-    });
   }
 
   if (mentalHealthForm) {

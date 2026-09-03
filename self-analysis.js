@@ -101,11 +101,6 @@
 
   async function loadHistory() {
     const user = getUser();
-    if (!user) {
-      window.location.href = "login.html";
-      return;
-    }
-
     const response = await fetch("/api/self-analysis?days=30");
     if (!response.ok) {
       renderAllGrids([]);
@@ -146,11 +141,6 @@
     selfError.textContent = "";
 
     const user = getUser();
-    if (!user) {
-      window.location.href = "login.html";
-      return;
-    }
-
     const payload = {
       log_date: analysisDate.value,
       study_hours: parseNumber("studyInput"),

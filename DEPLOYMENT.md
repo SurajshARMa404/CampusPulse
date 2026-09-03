@@ -12,13 +12,13 @@ This project is configured for Vercel with `api/index.py` and `vercel.json`.
 4. Deploy with: `vercel --prod`.
 
 The public address will be printed by Vercel, for example
-`https://your-project-name.vercel.app/login.html`.
+`https://your-project-name.vercel.app/`.
 ## Access
 
 Admin uses username `admin`, plus the password and MFA code configured above.
 
 Students open the public link, choose **Create an account**, select their CSE
-study year, verify the displayed development code, and then log in. In a real
+study year, and verify the displayed development code. In a real
 deployment, replace the development verification-code response with email or
 SMS delivery.
 

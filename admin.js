@@ -7,7 +7,7 @@
     const sessionResponse = await fetch("/api/session");
     const session = await sessionResponse.json();
     csrfToken = session.csrf_token || "";
-    if (!session.authenticated || !session.is_admin) { window.location.href = "login.html"; return; }
+    if (!session.authenticated || !session.is_admin) { window.location.href = "signup.html"; return; }
     const response = await fetch("/api/admin/stats");
     if (!response.ok) { error.textContent = "Statistics are unavailable."; return; }
     const data = await response.json();
@@ -18,7 +18,7 @@
 
   document.getElementById("adminLogout").addEventListener("click", function (event) {
     event.preventDefault();
-    fetch("/api/logout", { method: "POST", headers: { "X-CSRF-Token": csrfToken } }).finally(function () { window.location.href = "login.html"; });
+    fetch("/api/logout", { method: "POST", headers: { "X-CSRF-Token": csrfToken } }).finally(function () { window.location.href = "signup.html"; });
   });
   load();
 })();

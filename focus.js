@@ -175,11 +175,6 @@
 
     try {
       const session = await getSession();
-      if (!session.authenticated) {
-        window.location.href = "login.html";
-        return;
-      }
-
       if (typeof FaceMesh === "undefined" || typeof drawConnectors === "undefined") {
         throw new Error("MediaPipe libraries did not load. Check the internet connection and reload.");
       }

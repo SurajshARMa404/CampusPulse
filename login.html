@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusPulse | Sign in</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-bg app-page">
+  <main class="card" aria-labelledby="login-title">
+    <h1 id="login-title">CampusPulse Sign in</h1>
+    <p class="subtitle">Choose your account type to continue.</p>
+    <form id="loginForm" novalidate>
+      <label for="loginRole">Account type</label>
+      <select id="loginRole" required>
+        <option value="student">Student</option>
+        <option value="admin">Admin</option>
+      </select>
+      <label for="loginUsername">Username or college email</label>
+      <input id="loginUsername" type="text" autocomplete="username" required />
+      <label for="loginPassword">Password</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" required />
+      <label for="loginMfaCode">Admin MFA code (admin only)</label>
+      <input id="loginMfaCode" type="password" autocomplete="one-time-code" />
+      <p id="authMessage" class="error" role="alert" aria-live="polite"></p>
+      <button type="submit">Sign in</button>
+    </form>
+    <p><a href="signup.html">Create an account</a> | <a href="reset.html">Reset password</a></p>
+  </main>
+  <script src="auth.js"></script>
+</body>
+</html>

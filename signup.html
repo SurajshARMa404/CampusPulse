@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusPulse | Sign up</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-bg app-page">
+  <main class="card" aria-labelledby="signup-title">
+    <h1 id="signup-title">Create account</h1>
+    <p class="subtitle">Student or administrator access</p>
+    <form id="signupForm" novalidate>
+      <label for="signupRole">Account type</label>
+      <select id="signupRole" required>
+        <option value="student">Student</option>
+        <option value="admin">Admin</option>
+      </select>
+      <label for="signupName">Full name</label>
+      <input id="signupName" type="text" required autocomplete="name" />
+      <label for="signupUsername">Username</label>
+      <input id="signupUsername" type="text" required autocomplete="username" />
+      <label for="signupEmail">College email</label>
+      <input id="signupEmail" type="email" placeholder="usernamecse@nsec.ac" required autocomplete="email" />
+      <label for="signupPassword">Password</label>
+      <input id="signupPassword" type="password" minlength="10" required autocomplete="new-password" />
+      <label for="signupHostel">Hostel</label>
+      <input id="signupHostel" type="text" placeholder="Hostel A" value="Unassigned" />
+      <label for="signupYear">Study year</label>
+      <select id="signupYear" required>
+        <option value="">Select year</option>
+        <option value="1">1st year</option>
+        <option value="2">2nd year</option>
+        <option value="3">3rd year</option>
+        <option value="4">4th year</option>
+      </select>
+      <p id="authMessage" class="error" role="alert" aria-live="polite"></p>
+      <button type="submit">Create account</button>
+    </form>
+    <p><a href="login.html">Sign in</a></p>
+  </main>
+  <script src="auth.js"></script>
+</body>
+</html>

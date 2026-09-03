@@ -10,17 +10,42 @@
 
   function show(text) { if (message) message.textContent = text; }
 
+  function saveAuth(data) {
+    if (data.token) {
+      localStorage.setItem("campuspulseToken", data.token);
+    }
+    window.location.href = data.redirect || "home.html";
+  }
+
   const sessionReady = loadSession();
+
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) loginForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    await sessionReady;
+    const response = await fetch("/api/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({
+        username: document.getElementById("loginUsername").value.trim(),
+        password: document.getElementById("loginPassword").value,
+        role: document.getElementById("loginRole").value,
+        mfa_code: document.getElementById("loginMfaCode").value.trim()
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) return show(data.error || "Unable to sign in.");
+    saveAuth(data);
+  });
 
   const signupForm = document.getElementById("signupForm");
   if (signupForm) signupForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     await sessionReady;
-    const response = await fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ username: document.getElementById("signupUsername").value.trim(), email: document.getElementById("signupEmail").value.trim(), password: document.getElementById("signupPassword").value, department: "CSE", study_year: document.getElementById("signupYear").value }) });
+    const response = await fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }, body: JSON.stringify({ full_name: document.getElementById("signupName").value.trim(), username: document.getElementById("signupUsername").value.trim(), email: document.getElementById("signupEmail").value.trim(), password: document.getElementById("signupPassword").value, role: document.getElementById("signupRole").value, hostel: document.getElementById("signupHostel").value.trim(), department: "CSE", study_year: document.getElementById("signupYear").value }) });
     const data = await response.json();
     if (!response.ok) return show(data.error || "Unable to create account.");
-    show("Account created successfully.");
-    window.location.href = "home.html";
+    saveAuth(data);
   });
 
   const requestForm = document.getElementById("resetRequestForm");

@@ -17,10 +17,9 @@ The public address will be printed by Vercel, for example
 
 Admin uses username `admin`, plus the password and MFA code configured above.
 
-Students open the public link, choose **Create an account**, select their CSE
-study year, and verify the displayed development code. In a real
-deployment, replace the development verification-code response with email or
-SMS delivery.
+Students can create an account with a college email matching
+`usernamecse@nsec.ac`, then sign in and continue to the Stress and Focus
+modules. Admins sign in with the configured admin account and MFA code.
 
 ## Persistent database setup
 

@@ -14,11 +14,12 @@
     stats.innerHTML = data.years.map(function (item) {
       return "<article class=\"result\"><h2>Year " + item.year + "</h2><p><strong>High stress:</strong> " + item.stress_percent + "%</p><p>Based on " + item.total + " prediction" + (item.total === 1 ? "" : "s") + "</p></article>";
     }).join("");
+    if (data.groups && data.groups.length) {
+      stats.innerHTML += "<h2>Hostel and batch aggregates</h2>" + data.groups.map(function (group) {
+        return "<article class=\"result\"><h3>" + group.hostel + " | " + group.batch + "</h3><p>Out of " + group.students + " students, " + group.high_stress + " are experiencing high stress.</p></article>";
+      }).join("");
+    }
   }
 
-  document.getElementById("adminLogout").addEventListener("click", function (event) {
-    event.preventDefault();
-    fetch("/api/logout", { method: "POST", headers: { "X-CSRF-Token": csrfToken } }).finally(function () { window.location.href = "signup.html"; });
-  });
   load();
 })();

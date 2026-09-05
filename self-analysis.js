@@ -17,10 +17,6 @@
     return;
   }
 
-  function getUser() {
-    return "authenticated";
-  }
-
   function toIsoDate(date) {
     return date.toISOString().slice(0, 10);
   }
@@ -90,17 +86,28 @@
       return;
     }
     focusSessionHistory.innerHTML = sessions.map(function (item) {
-      const distracted = Number(item.distracted_percentage);
+      const distracted = Number(item.distractedPct || 0);
       const level = distracted >= 50 ? "High" : distracted >= 25 ? "Moderate" : "Low";
-      const duration = Number(item.total_seconds || 0);
-      return "<article class=\"focus-history-item\"><strong>" + new Date(item.session_started_at).toLocaleString() +
-        "</strong><p>Focused: " + Number(item.focused_percentage).toFixed(1) + "% | Distracted: " + distracted.toFixed(1) +
+      const duration = Number(item.duration || 0);
+      return "<article class=\"focus-history-item\"><strong>" + new Date(item.timestamp).toLocaleString() +
+        "</strong><p>Focused: " + Number(item.focusedPct || 0).toFixed(1) + "% | Distracted: " + distracted.toFixed(1) +
+        "% | Confused: " + Number(item.confusedPct || 0).toFixed(1) +
         "% | Duration: " + duration + "s</p><p>Stress level: " + level + "</p></article>";
     }).join("");
   }
 
   async function loadHistory() {
-    const user = getUser();
+    let localSessions = [];
+    try {
+      localSessions = JSON.parse(localStorage.getItem("local_focus_sessions") || "[]");
+    } catch (error) {
+      localSessions = [];
+    }
+    if (!Array.isArray(localSessions)) {
+      localSessions = [];
+    }
+    renderFocusSessions(localSessions);
+
     const response = await fetch("/api/self-analysis?days=30");
     if (!response.ok) {
       renderAllGrids([]);
@@ -109,7 +116,6 @@
 
     const data = await response.json();
     renderAllGrids(data.records || []);
-    renderFocusSessions(data.focus_sessions || []);
   }
 
   async function saveEntry(payload) {
@@ -140,7 +146,6 @@
     event.preventDefault();
     selfError.textContent = "";
 
-    const user = getUser();
     const payload = {
       log_date: analysisDate.value,
       study_hours: parseNumber("studyInput"),

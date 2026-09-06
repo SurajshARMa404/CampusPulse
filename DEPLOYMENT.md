@@ -1,39 +1,42 @@
-# Vercel deployment
+Vercel Deployment Guide
 
-This project is configured for Vercel with `api/index.py` and `vercel.json`.
+This repository contains the deployment configuration for Vercel using api/index.py and vercel.json.
 
-1. Install Node.js, then install the Vercel CLI: `npm install -g vercel`.
-2. From this folder run: `vercel login` and then `vercel`.
-3. In Vercel project settings, add these environment variables for Production:
-   - `DATABASE_URL`: the pooled PostgreSQL connection URL from Supabase or Neon
-   - `CAMPUSPULSE_SECRET_KEY`: a long random value
-   - `CAMPUSPULSE_ADMIN_PASSWORD`: a new strong admin password
-   - `CAMPUSPULSE_ADMIN_MFA`: a private admin MFA code
-4. Deploy with: `vercel --prod`.
+Deployment Steps
 
-The public address will be printed by Vercel, for example
-`https://your-project-name.vercel.app/`.
-## Access
+1. Install Node.js and the Vercel CLI globally:
+   npm install -g vercel
 
-Admin uses username `admin`, plus the password and MFA code configured above.
+2. Authenticate and link the project:
+   vercel login
+   vercel
 
-Students can create an account with a college email matching
-`usernamecse@nsec.ac`, then sign in and continue to the Stress and Focus
-modules. Admins sign in with the configured admin account and MFA code.
+3. Configure the following Production Environment Variables in the Vercel Dashboard:
+   - DATABASE_URL: Pooled PostgreSQL connection string (from Supabase or Neon).
+   - CAMPUSPULSE_SECRET_KEY: High-entropy random string for session signing.
+   - CAMPUSPULSE_ADMIN_PASSWORD: Secure administrator password.
+   - CAMPUSPULSE_ADMIN_MFA: Private admin MFA token.
 
-## Persistent database setup
+4. Trigger production build:
+   vercel --prod
 
-1. Create a free project at [Supabase](https://supabase.com) or [Neon](https://neon.tech).
-2. Open the project dashboard and copy its PostgreSQL **Connection string** or
-   **Connection URL**. Prefer the pooled URL when the provider offers one.
-3. In Vercel, open **CampusPulse > Settings > Environment Variables**.
-4. Add key `DATABASE_URL` and paste the complete URL as its value. Enable it for
-   Production, Preview, and Development as needed.
-5. Redeploy with `vercel --prod` or trigger a new deployment from GitHub.
+Access and Data Isolation
 
-Check `https://your-project.vercel.app/api/health`. It must report
-`"persistent_database_configured": true` before students create accounts.
+- Admin Access: Login using admin alongside the configured CAMPUSPULSE_ADMIN_PASSWORD and MFA token.
+- Student Access: Students register using their valid institutional email address (e.g., student@university.edu.in).
+- Data Privacy Guardrail: Raw camera frames and individual wellness metrics remain strictly local in browser storage (localStorage/IndexedDB). The backend database only handles auth sessions and differential privacy batch aggregate metrics.
 
-The app uses local SQLite only when `DATABASE_URL` is absent. On Vercel, do not
-omit `DATABASE_URL`: the `/tmp` fallback is temporary and is only intended for
-local development or a quick smoke test.
+Database Configuration
+
+Vercel serverless functions are ephemeral. The local SQLite fallback in /tmp is strictly for local dev/testing and will lose state across function invocations.
+
+1. Provision a PostgreSQL instance on Supabase or Neon.
+2. Copy the Pooled Connection URL.
+3. Navigate to Vercel Project > Settings > Environment Variables.
+4. Add DATABASE_URL with the connection string for Production, Preview, and Development.
+5. Redeploy using vercel --prod.
+
+Health Check
+
+Verify backend connectivity at https://your-app.vercel.app/api/health. 
+It must return persistent_database_configured: true before onboarding users.
